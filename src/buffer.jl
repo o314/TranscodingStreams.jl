@@ -26,63 +26,21 @@ mutable struct Buffer
     # the number of total bytes passed through this buffer
     total::Int64
 
-    function Buffer(size::Integer)
-        return new(Vector{UInt8}(undef, size), 0, 1, 1, 0)
-    end
-
-    function Buffer(data::Vector{UInt8})
-        return new(data, 0, 1, length(data)+1, 0)
-    end
+    Buffer(size::Integer) = new(Vector{UInt8}(undef, size), 0, 1, 1, 0)
+    Buffer(data::Vector{UInt8}) = new(data, 0, 1, length(data)+1, 0)
 end
 
-function Buffer(data::Base.CodeUnits{UInt8})
-    return Buffer(Vector{UInt8}(data))
-end
-
-function Base.length(buf::Buffer)
-    return length(buf.data)
-end
-
-function bufferptr(buf::Buffer)
-    return pointer(buf.data, buf.bufferpos)
-end
-
-function buffersize(buf::Buffer)
-    return buf.marginpos - buf.bufferpos
-end
-
-function buffermem(buf::Buffer)
-    return Memory(bufferptr(buf), buffersize(buf))
-end
-
-function marginptr(buf::Buffer)
-    return pointer(buf.data, buf.marginpos)
-end
-
-function marginsize(buf::Buffer)
-    return lastindex(buf.data) - buf.marginpos + 1
-end
-
-function marginmem(buf::Buffer)
-    return Memory(marginptr(buf), marginsize(buf))
-end
-
-function ismarked(buf::Buffer)
-    return buf.markpos != 0
-end
-
-function mark!(buf::Buffer)
-    return buf.markpos = buf.bufferpos
-end
-
-function unmark!(buf::Buffer)
-    if buf.markpos == 0
-        return false
-    else
-        buf.markpos = 0
-        return true
-    end
-end
+Buffer(data::Base.CodeUnits{UInt8}) = Buffer(Vector{UInt8}(data))
+Base.length(buf::Buffer) = length(buf.data)
+bufferptr(buf::Buffer) = pointer(buf.data, buf.bufferpos)
+buffersize(buf::Buffer) = buf.marginpos - buf.bufferpos
+buffermem(buf::Buffer) = Memory(bufferptr(buf), buffersize(buf))
+marginptr(buf::Buffer) = pointer(buf.data, buf.marginpos)
+marginsize(buf::Buffer) = lastindex(buf.data) - buf.marginpos + 1
+marginmem(buf::Buffer) = Memory(marginptr(buf), marginsize(buf))
+ismarked(buf::Buffer) = buf.markpos != 0
+mark!(buf::Buffer) = buf.markpos = buf.bufferpos
+unmark!(buf::Buffer) = if buf.markpos==0; false else; buf.markpos=0; true end
 
 function reset!(buf::Buffer)
     @assert buf.markpos > 0
@@ -91,43 +49,12 @@ function reset!(buf::Buffer)
     return buf.bufferpos
 end
 
-# Notify that `n` bytes are consumed from `buf`.
-function consumed!(buf::Buffer, n::Integer)
-    buf.bufferpos += n
-    return buf
-end
-
-# Notify that `n` bytes are supplied to `buf`.
-function supplied!(buf::Buffer, n::Integer)
-    buf.marginpos += n
-    return buf
-end
-
-function consumed2!(buf::Buffer, n::Integer)
-    buf.bufferpos += n
-    buf.total += n
-    return buf
-end
-
-function supplied2!(buf::Buffer, n::Integer)
-    buf.marginpos += n
-    buf.total += n
-    return buf
-end
-
-# Discard buffered data and initialize positions.
-function initbuffer!(buf::Buffer)
-    buf.markpos = 0
-    buf.bufferpos = buf.marginpos = 1
-    buf.total = 0
-    return buf
-end
-
-# Remove all buffered data.
-function emptybuffer!(buf::Buffer)
-    buf.marginpos = buf.bufferpos
-    return buf
-end
+consumed!(buf::Buffer, n::Integer) = (buf.bufferpos += n; buf) # Notify that `n` bytes are consumed from `buf`.
+supplied!(buf::Buffer, n::Integer) = (buf.marginpos += n; buf) # Notify that `n` bytes are supplied to `buf`.
+consumed2!(buf::Buffer, n::Integer) = (buf.bufferpos += n; buf.total += n; buf)
+supplied2!(buf::Buffer, n::Integer) = (buf.marginpos += n; buf.total += n; buf)
+initbuffer!(buf::Buffer) = (buf.markpos = 0; buf.bufferpos = buf.marginpos = 1; buf.total = 0; buf) # Discard buffered data and initialize positions.
+emptybuffer!(buf::Buffer) = (buf.marginpos = buf.bufferpos; buf) # Remove all buffered data.
 
 # Make margin with ≥`minsize` and return the size of it.
 function makemargin!(buf::Buffer, minsize::Integer)
@@ -160,26 +87,10 @@ function makemargin!(buf::Buffer, minsize::Integer)
     return marginsize(buf)
 end
 
-# Read a byte.
-function readbyte!(buf::Buffer)
-    b = buf.data[buf.bufferpos]
-    consumed!(buf, 1)
-    return b
-end
+readbyte!(buf::Buffer) = (b = buf.data[buf.bufferpos]; consumed!(buf, 1); b) # Read a byte.
+writebyte!(buf::Buffer, b::UInt8) = (buf.data[buf.marginpos] = b; supplied!(buf, 1); 1) # Write a byte.
+skipbuffer!(buf::Buffer, n::Integer) = ((@assert n ≤ buffersize(buf)); consumed!(buf, n); buf) # Skip `n` bytes in the buffer.
 
-# Write a byte.
-function writebyte!(buf::Buffer, b::UInt8)
-    buf.data[buf.marginpos] = b
-    supplied!(buf, 1)
-    return 1
-end
-
-# Skip `n` bytes in the buffer.
-function skipbuffer!(buf::Buffer, n::Integer)
-    @assert n ≤ buffersize(buf)
-    consumed!(buf, n)
-    return buf
-end
 
 # Take the ownership of the marked data.
 function takemarked!(buf::Buffer)
