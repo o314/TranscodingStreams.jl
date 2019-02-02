@@ -7,7 +7,7 @@ export
 
 const ByteData = Union{Vector{UInt8},Base.CodeUnits{UInt8}}
 
-include("memory.jl")
+include("memory_unsafe.jl")
 include("buffer.jl")
 include("error.jl")
 include("codec.jl")
