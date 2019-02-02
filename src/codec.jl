@@ -40,11 +40,12 @@ todo
 
 abstract type Codec end
 
-
-expectedsize(codec::Codec, input::Memory)::Int = input.size
 minoutsize(codec::Codec, input::Memory)::Int = max(1, div(input.size, 4))
+expectedsize(codec::Codec, input::Memory)::Int = input.size
 initialize(codec::Codec) = nothing
 finalize(codec::Codec)::Nothing = nothing
 startproc(codec::Codec, mode::Symbol, error::Error)::Symbol = :ok
 process(codec::Codec, input::Memory, output::Memory, error::Error)::Tuple{Int,Int,Symbol} =
     throw(MethodError(process, (codec, input, output, error)))
+
+
