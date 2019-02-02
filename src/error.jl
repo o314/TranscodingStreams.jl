@@ -1,6 +1,3 @@
-# Transcoding Error
-# =================
-
 """
 Container of transcoding error.
 
@@ -11,24 +8,10 @@ calling the `setindex!` method (e.g. `error[] = ErrorException("error!")`).
 """
 mutable struct Error
     error::Exception
-
-    function Error()
-        return new()
-    end
+    Error() = new()
 end
 
 # Test if an exception is set.
-function haserror(error::Error)
-    return isdefined(error, :error)
-end
-
-function Base.setindex!(error::Error, ex::Exception)
-    @assert !haserror(error) "an error is already set"
-    error.error = ex
-    return error
-end
-
-function Base.getindex(error::Error)
-    @assert haserror(error) "no error is set"
-    return error.error
-end
+haserror(error::Error) = isdefined(error, :error)
+Base.setindex!(error::Error, ex::Exception) = ((@assert !haserror(error) "an error is already set"); error.error = ex; error)
+Base.getindex(error::Error) = (@assert haserror(error) "no error is set"); error.error
