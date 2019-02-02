@@ -1,6 +1,3 @@
-# Transcoding State
-# =================
-
 # See docs/src/devnotes.md.
 """
 A mutable state type of transcoding streams.
