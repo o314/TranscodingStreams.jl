@@ -1,6 +1,3 @@
-# Transcoding Stream
-# ==================
-
 # Data Flow
 # ---------
 #
@@ -11,24 +8,15 @@
 #   user ---> |state.buffer1| ---> <codec> ---> |state.buffer2| ---> stream
 
 struct TranscodingStream{C<:Codec,S<:IO} <: IO
-    # codec object
-    codec::C
-
-    # source/sink stream
-    stream::S
-
-    # mutable state of the stream
-    state::State
+    codec::C # codec object
+    stream::S # source/sink stream
+    state::State # mutable state of the stream
 
     function TranscodingStream{C,S}(codec::C, stream::S, state::State, initialized::Bool) where {C<:Codec,S<:IO}
-        if !isopen(stream)
-            throw(ArgumentError("closed stream"))
-        elseif state.mode != :idle
-            throw(ArgumentError("invalid initial mode"))
+        if !isopen(stream); throw(ArgumentError("closed stream"))
+        elseif state.mode != :idle; throw(ArgumentError("invalid initial mode"))
         end
-        if !initialized
-            initialize(codec)
-        end
+        if !initialized; initialize(codec) end
         return new(codec, stream, state)
     end
 end
@@ -40,11 +28,7 @@ end
 
 const DEFAULT_BUFFER_SIZE = 16 * 2^10  # 16KiB
 
-function checkbufsize(bufsize::Integer)
-    if bufsize ≤ 0
-        throw(ArgumentError("non-positive buffer size"))
-    end
-end
+checkbufsize(bufsize::Integer) = if bufsize ≤ 0; throw(ArgumentError("non-positive buffer size")) end
 
 function checksharedbuf(sharedbuf::Bool, stream::IO)
     if sharedbuf && !(stream isa TranscodingStream)
@@ -153,73 +137,40 @@ end
 
 function Base.open(f::Function, ::Type{T}, args...) where T<:TranscodingStream
     stream = T(open(args...))
-    try
-        f(stream)
-    finally
-        close(stream)
+    try; f(stream)
+    finally; close(stream)
     end
 end
 
-function Base.isopen(stream::TranscodingStream)
-    return stream.state.mode != :close && stream.state.mode != :panic
-end
+Base.isopen(stream::TranscodingStream) = stream.state.mode != :close && stream.state.mode != :panic
 
 function Base.close(stream::TranscodingStream)
     stopped = stream.state.mode == :stop
-    if stream.state.mode != :panic
-        changemode!(stream, :close)
-    end
-    if !stopped
-        close(stream.stream)
-    end
+    if stream.state.mode != :panic; changemode!(stream, :close) end
+    if !stopped; close(stream.stream) end
     return nothing
 end
 
 function Base.eof(stream::TranscodingStream)
     mode = stream.state.mode
-    if mode == :idle
-        changemode!(stream, :read)
-        return eof(stream)
-    elseif mode == :read
-        return buffersize(stream.state.buffer1) == 0 && fillbuffer(stream) == 0
-    elseif mode == :write
-        return eof(stream.stream)
-    elseif mode == :close
-        return true
-    elseif mode == :stop
-        return buffersize(stream.state.buffer1) == 0
-    elseif mode == :panic
-        throw_panic_error()
-    else
-        @assert false
+    if mode == :idle;       changemode!(stream, :read); return eof(stream)
+    elseif mode == :read;   return buffersize(stream.state.buffer1) == 0 && fillbuffer(stream) == 0
+    elseif mode == :write;  return eof(stream.stream)
+    elseif mode == :close;  return true
+    elseif mode == :stop;   return buffersize(stream.state.buffer1) == 0
+    elseif mode == :panic;  throw_panic_error()
+    else;                   @assert false
     end
 end
 
-function Base.ismarked(stream::TranscodingStream)
-    checkmode(stream)
-    return ismarked(stream.state.buffer1)
-end
-
-function Base.mark(stream::TranscodingStream)
-    checkmode(stream)
-    return mark!(stream.state.buffer1)
-end
-
-function Base.unmark(stream::TranscodingStream)
-    checkmode(stream)
-    return unmark!(stream.state.buffer1)
-end
-
-function Base.reset(stream::TranscodingStream)
-    checkmode(stream)
-    return reset!(stream.state.buffer1)
-end
+Base.ismarked(stream::TranscodingStream) = (checkmode(stream); ismarked(stream.state.buffer1))
+Base.mark(stream::TranscodingStream) = (checkmode(stream); mark!(stream.state.buffer1))
+Base.unmark(stream::TranscodingStream) = (checkmode(stream); unmark!(stream.state.buffer1))
+Base.reset(stream::TranscodingStream) = (checkmode(stream); reset!(stream.state.buffer1))
 
 function Base.skip(stream::TranscodingStream, offset::Integer)
     checkmode(stream)
-    if offset < 0
-        throw(ArgumentError("negative offset"))
-    end
+    if offset < 0; throw(ArgumentError("negative offset")) end
     mode = stream.state.mode
     buffer1 = stream.state.buffer1
     skipped = 0
@@ -229,16 +180,11 @@ function Base.skip(stream::TranscodingStream, offset::Integer)
             emptybuffer!(buffer1)
             skipped += n
         end
-        if eof(stream)
-            emptybuffer!(buffer1)
-        else
-            skipbuffer!(buffer1, offset - skipped)
+        if eof(stream); emptybuffer!(buffer1)
+        else skipbuffer!(buffer1, offset - skipped)
         end
-    else
-        # TODO: support skip in write mode
-        throw(ArgumentError("not in read mode"))
+    else; throw(ArgumentError("not in read mode")) # TODO: support skip in write mode
     end
-    return
 end
 
 
