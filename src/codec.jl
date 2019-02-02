@@ -95,75 +95,14 @@ any) to `output`. If there is no data to write, the status code must be set to
 status code. If an error happens while processing data, the `error` argument
 must be set to an exception object and the return code must be `:error`.
 """
+
 abstract type Codec end
 
 
-# Methods
-# -------
-
-"""
-    expectedsize(codec::Codec, input::Memory)::Int
-
-Return the expected size of the transcoded `input` with `codec`.
-
-The default method returns `input.size`.
-"""
-function expectedsize(codec::Codec, input::Memory)::Int
-    return input.size
-end
-
-"""
-    minoutsize(codec::Codec, input::Memory)::Int
-
-Return the minimum output size to be ensured when calling `process`.
-
-The default method returns `max(1, div(input.size, 4))`.
-"""
-function minoutsize(codec::Codec, input::Memory)::Int
-    return max(1, div(input.size, 4))
-end
-
-"""
-    initialize(codec::Codec)::Void
-
-Initialize `codec`.
-
-The default method does nothing.
-"""
-function initialize(codec::Codec)
-    return nothing
-end
-
-"""
-    finalize(codec::Codec)::Void
-
-Finalize `codec`.
-
-The default method does nothing.
-"""
-function finalize(codec::Codec)::Nothing
-    return nothing
-end
-
-"""
-    startproc(codec::Codec, mode::Symbol, error::Error)::Symbol
-
-Start data processing with `codec` of `mode`.
-
-The default method does nothing and returns `:ok`.
-"""
-function startproc(codec::Codec, mode::Symbol, error::Error)::Symbol
-    return :ok
-end
-
-"""
-    process(codec::Codec, input::Memory, output::Memory, error::Error)::Tuple{Int,Int,Symbol}
-
-Do data processing with `codec`.
-
-There is no default method.
-"""
-function process(codec::Codec, input::Memory, output::Memory, error::Error)::Tuple{Int,Int,Symbol}
-    # no default method
+expectedsize(codec::Codec, input::Memory)::Int = input.size
+minoutsize(codec::Codec, input::Memory)::Int = max(1, div(input.size, 4))
+initialize(codec::Codec) = nothing
+finalize(codec::Codec)::Nothing = nothing
+startproc(codec::Codec, mode::Symbol, error::Error)::Symbol = :ok
+process(codec::Codec, input::Memory, output::Memory, error::Error)::Tuple{Int,Int,Symbol} =
     throw(MethodError(process, (codec, input, output, error)))
-end
